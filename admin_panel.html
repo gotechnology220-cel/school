@@ -1,10 +1,8 @@
-
-<!-- (Truncated: full code for admin_panel.html from previous message) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Admin Dashboard - Mkuzo Islamic High School</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -85,6 +83,13 @@
 
     .empty-state { text-align: center; padding: 40px; color: #999; }
 
+    /* simple modal for viewing details */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+    .modal-content { background: white; padding: 20px; border-radius: 8px; max-width: 700px; width: 92%; max-height: 80vh; overflow-y: auto; }
+    .detail-row { display: grid; grid-template-columns: 180px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .detail-row strong { color: #444; }
+    .close-detail { margin-top: 12px; padding: 8px 14px; background: #2e7d32; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+
     @media (max-width: 768px) {
       .header { flex-direction: column; gap: 15px; }
       .btn-group { flex-direction: column; }
@@ -92,90 +97,6 @@
     }
   </style>
 </head>
-
-<!---firebase configuration-->
-
-<script type="module">
-  // Firebase configuration
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAH7U0TJ-w2ggNcFhEHny2o_bft99b5BLQ",
-    authDomain: "mkuzo-islamic-secondary-school.firebaseapp.com",
-    projectId: "mkuzo-islamic-secondary-school",
-    storageBucket: "mkuzo-islamic-secondary-school.firebasestorage.app",
-    messagingSenderId: "9817235875",
-    appId: "1:9817235875:web:9dd285dff805b48c493a16",
-    measurementId: "G-2HSYPT1TZY"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  // 🧾 Save student form
-  const form = document.getElementById('admissionForm');
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const f = new FormData(form);
-      const data = {
-        timestamp: new Date().toISOString(),
-        student: {
-          firstName: f.get('firstName'),
-          middleName: f.get('middleName'),
-          lastName: f.get('lastName'),
-          gender: f.get('gender'),
-          dob: f.get('dob'),
-          address: f.get('studentAddress')
-        },
-        parent: {
-          name: f.get('parentName'),
-          phone: f.get('parentPhone'),
-          address: f.get('parentAddress')
-        },
-        academic: {
-          classroom: f.get('classroom'),
-          academicYear: f.get('academicYear'),
-          previousSchool: f.get('previousSchool'),
-          notes: f.get('notes')
-        }
-      };
-      await addDoc(collection(db, "admissions"), data);
-      alert("✅ Submitted successfully!");
-      form.reset();
-    });
-  }
-
-  // 📋 Load data for admin
-  const tableContainer = document.getElementById('admissionsTable');
-  if (tableContainer) {
-    async function loadAdmissions() {
-      const querySnapshot = await getDocs(collection(db, "admissions"));
-      let html = `
-        <table>
-          <thead><tr>
-            <th>Student Name</th><th>Gender</th><th>Parent</th><th>Phone</th><th>Class</th><th>Year</th>
-          </tr></thead><tbody>`;
-      querySnapshot.forEach((docSnap) => {
-        const a = docSnap.data();
-        html += `<tr>
-          <td>${a.student.firstName} ${a.student.lastName}</td>
-          <td>${a.student.gender}</td>
-          <td>${a.parent.name}</td>
-          <td>${a.parent.phone}</td>
-          <td>${a.academic.classroom}</td>
-          <td>${a.academic.academicYear}</td>
-        </tr>`;
-      });
-      html += "</tbody></table>";
-      tableContainer.innerHTML = html;
-    }
-    loadAdmissions();
-  }
-</script>
-
-<!---firebase configuration-->
 
 <body>
   <div class="header">
@@ -234,33 +155,106 @@
     </div>
   </div>
 
+  <!-- Detail modal -->
+  <div id="detailModal" class="modal" onclick="if(event.target.id==='detailModal') closeDetailModal()">
+    <div class="modal-content" id="modalContent">
+      <div id="modalInner"></div>
+      <button class="close-detail" onclick="closeDetailModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- xlsx lib -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script>
-    // ✅ Authentication check
+
+  <!-- Firebase + app code -->
+  <script type="module">
+    // Redirect if not logged in via your existing admin login method
     if (localStorage.getItem('adminLoggedIn') !== 'true') {
       window.location.href = 'index.html';
     }
 
-    let admissions = JSON.parse(localStorage.getItem('admissions') || '[]');
+    // Imports (modular SDK)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      onSnapshot,
+      deleteDoc,
+      doc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-    function init() {
+    // YOUR provided firebaseConfig (used exactly as supplied)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAH7U0TJ-w2ggNcFhEHny2o_bft99b5BLQ",
+      authDomain: "mkuzo-islamic-secondary-school.firebaseapp.com",
+      projectId: "mkuzo-islamic-secondary-school",
+      storageBucket: "mkuzo-islamic-secondary-school.firebasestorage.app",
+      messagingSenderId: "9817235875",
+      appId: "1:9817235875:web:eb14ee8d00477ee4493a16",
+      measurementId: "G-TLNGRCTQG6"
+    };
+
+    // init
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // in-memory list of admissions (keeps table & exports fast)
+    let admissions = [];
+
+    // helper: format timestamp to friendly string
+    function formatTimestamp(a) {
+      if (!a) return "";
+      if (a.toDate) {
+        // Firestore Timestamp
+        return a.toDate().toLocaleString();
+      }
+      // string or other
+      try {
+        const d = new Date(a);
+        if (!isNaN(d)) return d.toLocaleString();
+      } catch (e) {}
+      return String(a);
+    }
+
+    // Subscribe to admissions collection (realtime)
+    const admissionsColl = collection(db, "admissions");
+    onSnapshot(admissionsColl, snapshot => {
+      admissions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // sort by createdAt or timestamp (newest first)
+      admissions.sort((x, y) => {
+        const xt = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().getTime() : (x.timestamp ? new Date(x.timestamp).getTime() : 0);
+        const yt = y.createdAt && y.createdAt.toDate ? y.createdAt.toDate().getTime() : (y.timestamp ? new Date(y.timestamp).getTime() : 0);
+        return yt - xt;
+      });
+
       updateStats();
       loadAdmissionsTable();
       loadParentSelect();
-    }
+    }, err => {
+      console.error("Firestore onSnapshot error:", err);
+      alert("Error loading admissions: " + (err.message || err));
+    });
 
+    // update stats
     function updateStats() {
       document.getElementById('totalAdmissions').textContent = admissions.length;
       const today = new Date().toLocaleDateString();
-      const todayCount = admissions.filter(a => new Date(a.timestamp).toLocaleDateString() === today).length;
+      const todayCount = admissions.filter(a => {
+        const date = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate() : (a.timestamp ? new Date(a.timestamp) : null);
+        return date && date.toLocaleDateString() === today;
+      }).length;
       document.getElementById('todayAdmissions').textContent = todayCount;
       document.getElementById('pendingReviews').textContent = admissions.length;
     }
 
+    // render admissions table
     function loadAdmissionsTable() {
       const container = document.getElementById('admissionsTable');
-      if (admissions.length === 0) {
-        container.innerHTML = `<div class="empty-state">No Applications Yet</div>`;
+      if (!admissions || admissions.length === 0) {
+        container.innerHTML = `<div class="empty-state"><h3>No Applications Yet</h3><p>Applications will appear here once students submit their forms.</p></div>`;
         return;
       }
 
@@ -268,121 +262,227 @@
         <table>
           <thead>
             <tr>
-              <th>ID</th><th>Student Name</th><th>Gender</th>
-              <th>Parent Name</th><th>Phone</th><th>Class</th><th>Year</th><th>Submitted On</th>
+              <th>ID</th>
+              <th>Student Name</th>
+              <th>Gender</th>
+              <th>Parent Name</th>
+              <th>Phone</th>
+              <th>Class</th>
+              <th>Year</th>
+              <th>Submitted On</th>
+              <th>Actions</th>
             </tr>
-          </thead><tbody>
+          </thead>
+          <tbody>
       `;
 
       admissions.forEach(a => {
+        const fullname = `${a.student?.firstName || ''} ${a.student?.middleName || ''} ${a.student?.lastName || ''}`.trim();
+        const submitted = formatTimestamp(a.createdAt) || (a.timestamp ? a.timestamp : '');
         html += `
           <tr>
             <td>${a.id}</td>
-            <td>${a.student.firstName} ${a.student.middleName} ${a.student.lastName}</td>
-            <td>${a.student.gender}</td>
-            <td>${a.parent.name}</td>
-            <td>${a.parent.phone}</td>
-            <td>${a.academic.classroom}</td>
-            <td>${a.academic.academicYear}</td>
-            <td>${a.timestamp}</td>
+            <td>${escapeHtml(fullname)}</td>
+            <td>${escapeHtml(a.student?.gender || '')}</td>
+            <td>${escapeHtml(a.parent?.name || '')}</td>
+            <td>${escapeHtml(a.parent?.phone || '')}</td>
+            <td>${escapeHtml(a.academic?.classroom || '')}</td>
+            <td>${escapeHtml(a.academic?.academicYear || '')}</td>
+            <td>${escapeHtml(submitted)}</td>
+            <td>
+              <div style="display:flex; gap:6px;">
+                <button class="btn" style="padding:6px 8px; font-size:12px;" onclick="viewDetails('${a.id}')">View</button>
+                <button class="btn btn-danger" style="padding:6px 8px; font-size:12px;" onclick="deleteSingle('${a.id}')">Delete</button>
+              </div>
+            </td>
           </tr>
         `;
       });
 
-      html += "</tbody></table>";
+      html += `</tbody></table>`;
       container.innerHTML = html;
     }
 
+    // populate parent select
     function loadParentSelect() {
       const select = document.getElementById('parentSelect');
+      if (!select) return;
+      select.innerHTML = `<option value="">-- Select Parent --</option>`;
       admissions.forEach(a => {
+        const phoneVal = a.parent?.phone || '';
+        const display = `${a.parent?.name || 'Unknown'} (${phoneVal})`;
         const opt = document.createElement('option');
-        opt.value = a.parent.phone.replace(/^0/, '255'); // convert to international format
-        opt.textContent = `${a.parent.name} (${a.parent.phone})`;
+        opt.value = phoneVal;
+        opt.textContent = display;
         select.appendChild(opt);
       });
     }
 
-    // ✅ Excel Export Functions
-    function exportStudentData() {
-      if (admissions.length === 0) return alert("No data to export!");
-      const data = admissions.map(a => ({
+    // export helpers (XLSX is loaded as global)
+    function prepareExportRows() {
+      return admissions.map(a => ({
         ID: a.id,
-        FirstName: a.student.firstName,
-        MiddleName: a.student.middleName,
-        LastName: a.student.lastName,
-        Gender: a.student.gender,
-        DOB: a.student.dob,
-        Address: a.student.address
+        Timestamp: formatTimestamp(a.createdAt) || (a.timestamp || ''),
+        FirstName: a.student?.firstName || '',
+        MiddleName: a.student?.middleName || '',
+        LastName: a.student?.lastName || '',
+        Gender: a.student?.gender || '',
+        DOB: a.student?.dob || '',
+        StudentAddress: a.student?.address || '',
+        ParentName: a.parent?.name || '',
+        ParentPhone: a.parent?.phone || '',
+        ParentAddress: a.parent?.address || '',
+        Classroom: a.academic?.classroom || '',
+        AcademicYear: a.academic?.academicYear || '',
+        PreviousSchool: a.academic?.previousSchool || '',
+        Notes: a.academic?.notes || ''
       }));
-      const ws = XLSX.utils.json_to_sheet(data);
+    }
+
+    // expose export functions to global for onclicks
+    window.exportStudentData = function exportStudentData() {
+      if (!admissions.length) return alert("No data to export!");
+      const rows = prepareExportRows().map(r => ({
+        ID: r.ID, FirstName: r.FirstName, MiddleName: r.MiddleName, LastName: r.LastName,
+        Gender: r.Gender, DOB: r.DOB, StudentAddress: r.StudentAddress, Timestamp: r.Timestamp
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Students");
       XLSX.writeFile(wb, "Student_Information.xlsx");
-    }
+    };
 
-    function exportParentData() {
-      if (admissions.length === 0) return alert("No data to export!");
-      const data = admissions.map(a => ({
-        ID: a.id,
-        ParentName: a.parent.name,
-        Phone: a.parent.phone,
-        Address: a.parent.address
+    window.exportParentData = function exportParentData() {
+      if (!admissions.length) return alert("No data to export!");
+      const rows = prepareExportRows().map(r => ({
+        ID: r.ID, ParentName: r.ParentName, Phone: r.ParentPhone, ParentAddress: r.ParentAddress, Timestamp: r.Timestamp
       }));
-      const ws = XLSX.utils.json_to_sheet(data);
+      const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Parents");
       XLSX.writeFile(wb, "Parent_Information.xlsx");
-    }
+    };
 
-    function exportAcademicData() {
-      if (admissions.length === 0) return alert("No data to export!");
-      const data = admissions.map(a => ({
-        ID: a.id,
-        Classroom: a.academic.classroom,
-        AcademicYear: a.academic.academicYear,
-        PreviousSchool: a.academic.previousSchool,
-        Notes: a.academic.notes
+    window.exportAcademicData = function exportAcademicData() {
+      if (!admissions.length) return alert("No data to export!");
+      const rows = prepareExportRows().map(r => ({
+        ID: r.ID, Classroom: r.Classroom, AcademicYear: r.AcademicYear, PreviousSchool: r.PreviousSchool, Notes: r.Notes, Timestamp: r.Timestamp
       }));
-      const ws = XLSX.utils.json_to_sheet(data);
+      const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Academics");
       XLSX.writeFile(wb, "Academic_Information.xlsx");
+    };
+
+    // delete all admissions in Firestore (be careful)
+    window.clearAllData = async function clearAllData() {
+      if (!confirm("Are you sure you want to permanently delete ALL admissions from the database? This cannot be undone.")) return;
+      try {
+        // delete each doc (client-side). This requires your Firestore rules to permit deletes for this user.
+        const deletes = admissions.map(a => deleteDoc(doc(db, "admissions", a.id)));
+        await Promise.all(deletes);
+        alert("All admissions deleted.");
+      } catch (err) {
+        console.error(err);
+        alert("Error clearing data: " + (err.message || err));
+      }
+    };
+
+    // delete single document
+    window.deleteSingle = async function deleteSingle(id) {
+      if (!confirm("Delete this submission?")) return;
+      try {
+        await deleteDoc(doc(db, "admissions", id));
+        alert("Deleted.");
+      } catch (err) {
+        console.error(err);
+        alert("Delete failed: " + (err.message || err));
+      }
+    };
+
+    // view details
+    window.viewDetails = function viewDetails(id) {
+      const a = admissions.find(x => x.id === id);
+      if (!a) return alert("Record not found");
+      const modalInner = document.getElementById('modalInner');
+      modalInner.innerHTML = `
+        <h3>Submission Details</h3>
+        <div class="detail-row"><strong>ID</strong><div>${escapeHtml(a.id)}</div></div>
+        <div class="detail-row"><strong>Submitted On</strong><div>${escapeHtml(formatTimestamp(a.createdAt) || (a.timestamp || ''))}</div></div>
+
+        <h4 style="margin-top:8px;">Student</h4>
+        <div class="detail-row"><strong>First Name</strong><div>${escapeHtml(a.student?.firstName || '')}</div></div>
+        <div class="detail-row"><strong>Middle Name</strong><div>${escapeHtml(a.student?.middleName || '')}</div></div>
+        <div class="detail-row"><strong>Last Name</strong><div>${escapeHtml(a.student?.lastName || '')}</div></div>
+        <div class="detail-row"><strong>Gender</strong><div>${escapeHtml(a.student?.gender || '')}</div></div>
+        <div class="detail-row"><strong>DOB</strong><div>${escapeHtml(a.student?.dob || '')}</div></div>
+        <div class="detail-row"><strong>Address</strong><div>${escapeHtml(a.student?.address || '')}</div></div>
+
+        <h4 style="margin-top:8px;">Parent</h4>
+        <div class="detail-row"><strong>Name</strong><div>${escapeHtml(a.parent?.name || '')}</div></div>
+        <div class="detail-row"><strong>Phone</strong><div>${escapeHtml(a.parent?.phone || '')}</div></div>
+        <div class="detail-row"><strong>Address</strong><div>${escapeHtml(a.parent?.address || '')}</div></div>
+
+        <h4 style="margin-top:8px;">Academic</h4>
+        <div class="detail-row"><strong>Classroom</strong><div>${escapeHtml(a.academic?.classroom || '')}</div></div>
+        <div class="detail-row"><strong>Academic Year</strong><div>${escapeHtml(a.academic?.academicYear || '')}</div></div>
+        <div class="detail-row"><strong>Previous School</strong><div>${escapeHtml(a.academic?.previousSchool || '')}</div></div>
+        <div class="detail-row"><strong>Notes</strong><div>${escapeHtml(a.academic?.notes || '')}</div></div>
+      `;
+      document.getElementById('detailModal').style.display = 'flex';
+    };
+
+    window.closeDetailModal = function closeDetailModal() {
+      document.getElementById('detailModal').style.display = 'none';
+    };
+
+    // WhatsApp & SMS: format phone to international (basic rules)
+    function normalizeForWa(phone) {
+      if (!phone) return "";
+      let p = String(phone).trim();
+      if (p.startsWith('+')) p = p.slice(1);
+      if (p.startsWith('0')) p = '255' + p.slice(1); // Tanzania default
+      // if already starts with country code (no +), leave as-is
+      return p.replace(/\D/g, ''); // remove non-digits
     }
 
-    // ✅ WhatsApp + SMS Messaging
-    function sendWhatsApp() {
-      const phone = document.getElementById('parentSelect').value;
+    window.sendWhatsApp = function sendWhatsApp() {
+      const phoneRaw = document.getElementById('parentSelect').value;
       const message = document.getElementById('whatsappMessage').value;
-      if (!phone || !message) return alert("Please select a parent and enter a message.");
-
-      // Send via WhatsApp
+      if (!phoneRaw || !message) return alert("Please select a parent and enter a message.");
+      const phone = normalizeForWa(phoneRaw);
+      // WhatsApp
       const wa = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
       window.open(wa, '_blank');
 
-      // Send via SMS (MMS)
+      // SMS (opens SMS composer on device)
       const sms = `sms:${phone}?body=${encodeURIComponent(message)}`;
       window.open(sms, '_blank');
-    }
+    };
 
-    function clearAllData() {
-      if (confirm("Are you sure you want to clear all admissions data?")) {
-        localStorage.removeItem('admissions');
-        admissions = [];
-        updateStats();
-        loadAdmissionsTable();
-        document.getElementById('parentSelect').innerHTML = `<option value="">-- Select Parent --</option>`;
-        alert("All data cleared!");
-      }
-    }
-
-    function logout() {
+    // logout (local method)
+    window.logout = function logout() {
       localStorage.removeItem('adminLoggedIn');
       window.location.href = 'index.html';
+    };
+
+    // small helper: escape for HTML injection safety in table/modal
+    function escapeHtml(str) {
+      if (str === undefined || str === null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
-    // Initialize dashboard
-    init();
+    // Optional: if you want to allow creating demo entries from this admin (not required)
+    // window.createDemo = async function() {
+    //   await addDoc(collection(db, "admissions"), {...});
+    // };
+
+    // initialize nothing else (onSnapshot will keep UI in sync)
   </script>
 </body>
 </html>
