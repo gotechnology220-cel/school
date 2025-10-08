@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin Dashboard - Mkuzo Islamic High School</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+    }
+    .header {
+      background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+      color: white;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .header h1 { font-size: 22px; }
+    .logout-btn {
+      background: white; color: #2e7d32; border: none;
+      padding: 10px 25px; border-radius: 5px; cursor: pointer;
+      font-weight: 600; transition: all 0.3s;
+    }
+    .logout-btn:hover { background: #f0f0f0; transform: translateY(-2px); }
+
+    .dashboard { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px; margin-bottom: 30px;
+    }
+    .stat-card {
+      background: white; padding: 25px; border-radius: 10px;
+      text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .stat-card h3 { color: #666; margin-bottom: 10px; }
+    .number { font-size: 36px; font-weight: bold; color: #2e7d32; }
+
+    .controls, .whatsapp-section, .data-section {
+      background: white; padding: 25px; border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px;
+    }
+    .controls h2, .whatsapp-section h2, .data-section h2 {
+      color: #2e7d32; margin-bottom: 20px;
+    }
+
+    .btn-group { display: flex; flex-wrap: wrap; gap: 15px; }
+    .btn {
+      padding: 12px 25px; border: none; border-radius: 5px;
+      cursor: pointer; font-weight: 600; font-size: 14px;
+      transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary { background: #2e7d32; color: white; }
+    .btn-primary:hover { background: #1b5e20; transform: translateY(-2px); }
+    .btn-success { background: #25D366; color: white; }
+    .btn-success:hover { background: #1ea952; transform: translateY(-2px); }
+    .btn-danger { background: #e53935; color: white; }
+    .btn-danger:hover { background: #c62828; transform: translateY(-2px); }
+
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { font-weight: 600; margin-bottom: 8px; }
+    .form-group select, .form-group textarea {
+      padding: 10px; border: 2px solid #e0e0e0; border-radius: 5px;
+      font-size: 14px;
+    }
+    .form-group textarea { min-height: 100px; resize: vertical; }
+
+    table {
+      width: 100%; border-collapse: collapse;
+      min-width: 800px;
+    }
+    th, td {
+      padding: 12px; text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    thead { background: #2e7d32; color: white; }
+    tbody tr:hover { background: #f5f5f5; }
+
+    .empty-state { text-align: center; padding: 40px; color: #999; }
+
+    /* simple modal for viewing details */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+    .modal-content { background: white; padding: 20px; border-radius: 8px; max-width: 700px; width: 92%; max-height: 80vh; overflow-y: auto; }
+    .detail-row { display: grid; grid-template-columns: 180px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .detail-row strong { color: #444; }
+    .close-detail { margin-top: 12px; padding: 8px 14px; background: #2e7d32; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+
+    @media (max-width: 768px) {
+      .header { flex-direction: column; gap: 15px; }
+      .btn-group { flex-direction: column; }
+      .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <h1>🕌 Admin Dashboard - Mkuzo Islamic High School</h1>
+    <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+  </div>
+
+  <div class="dashboard">
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <h3>Total Admissions</h3>
+        <div class="number" id="totalAdmissions">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Today's Applications</h3>
+        <div class="number" id="todayAdmissions">0</div>
+      </div>
+      <div class="stat-card">
+        <h3>Pending Reviews</h3>
+        <div class="number" id="pendingReviews">0</div>
+      </div>
+    </div>
+
+    <!-- Export Controls -->
+    <div class="controls">
+      <h2>📊 Export Data</h2>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="exportStudentData()">📥 Export Student Info</button>
+        <button class="btn btn-primary" onclick="exportParentData()">📥 Export Parent Info</button>
+        <button class="btn btn-primary" onclick="exportAcademicData()">📥 Export Academic Info</button>
+        <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear All Data</button>
+      </div>
+    </div>
+
+    <!-- WhatsApp + SMS Section -->
+    <div class="whatsapp-section">
+      <h2>💬 Send WhatsApp & SMS Message</h2>
+      <div class="form-group">
+        <label>Select Parent</label>
+        <select id="parentSelect">
+          <option value="">-- Select Parent --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="whatsappMessage" placeholder="Enter your message..."></textarea>
+      </div>
+      <button class="btn btn-success" onclick="sendWhatsApp()">📱 Send Message</button>
+    </div>
+
+    <!-- Data Table -->
+    <div class="data-section">
+      <h2>📋 All Admissions</h2>
+      <div class="table-container" id="admissionsTable"></div>
+    </div>
+  </div>
+
+  <!-- Detail modal -->
+  <div id="detailModal" class="modal" onclick="if(event.target.id==='detailModal') closeDetailModal()">
+    <div class="modal-content" id="modalContent">
+      <div id="modalInner"></div>
+      <button class="close-detail" onclick="closeDetailModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- xlsx lib -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Firebase + app code -->
+  <script type="module">
+    // Redirect if not logged in via your existing admin login method
+    if (localStorage.getItem('adminLoggedIn') !== 'true') {
+      window.location.href = 'index.html';
+    }
+
+    // Imports (modular SDK)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      onSnapshot,
+      deleteDoc,
+      doc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    // YOUR provided firebaseConfig (used exactly as supplied)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAH7U0TJ-w2ggNcFhEHny2o_bft99b5BLQ",
+      authDomain: "mkuzo-islamic-secondary-school.firebaseapp.com",
+      projectId: "mkuzo-islamic-secondary-school",
+      storageBucket: "mkuzo-islamic-secondary-school.firebasestorage.app",
+      messagingSenderId: "9817235875",
+      appId: "1:9817235875:web:eb14ee8d00477ee4493a16",
+      measurementId: "G-TLNGRCTQG6"
+    };
+
+    // init
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // in-memory list of admissions (keeps table & exports fast)
+    let admissions = [];
+
+    // helper: format timestamp to friendly string
+    function formatTimestamp(a) {
+      if (!a) return "";
+      if (a.toDate) {
+        // Firestore Timestamp
+        return a.toDate().toLocaleString();
+      }
+      // string or other
+      try {
+        const d = new Date(a);
+        if (!isNaN(d)) return d.toLocaleString();
+      } catch (e) {}
+      return String(a);
+    }
+
+    // Subscribe to admissions collection (realtime)
+    const admissionsColl = collection(db, "admissions");
+    onSnapshot(admissionsColl, snapshot => {
+      admissions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // sort by createdAt or timestamp (newest first)
+      admissions.sort((x, y) => {
+        const xt = x.createdAt && x.createdAt.toDate ? x.createdAt.toDate().getTime() : (x.timestamp ? new Date(x.timestamp).getTime() : 0);
+        const yt = y.createdAt && y.createdAt.toDate ? y.createdAt.toDate().getTime() : (y.timestamp ? new Date(y.timestamp).getTime() : 0);
+        return yt - xt;
+      });
+
+      updateStats();
+      loadAdmissionsTable();
+      loadParentSelect();
+    }, err => {
+      console.error("Firestore onSnapshot error:", err);
+      alert("Error loading admissions: " + (err.message || err));
+    });
+
+    // update stats
+    function updateStats() {
+      document.getElementById('totalAdmissions').textContent = admissions.length;
+      const today = new Date().toLocaleDateString();
+      const todayCount = admissions.filter(a => {
+        const date = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate() : (a.timestamp ? new Date(a.timestamp) : null);
+        return date && date.toLocaleDateString() === today;
+      }).length;
+      document.getElementById('todayAdmissions').textContent = todayCount;
+      document.getElementById('pendingReviews').textContent = admissions.length;
+    }
+
+    // render admissions table
+    function loadAdmissionsTable() {
+      const container = document.getElementById('admissionsTable');
+      if (!admissions || admissions.length === 0) {
+        container.innerHTML = `<div class="empty-state"><h3>No Applications Yet</h3><p>Applications will appear here once students submit their forms.</p></div>`;
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Student Name</th>
+              <th>Gender</th>
+              <th>Parent Name</th>
+              <th>Phone</th>
+              <th>Class</th>
+              <th>Year</th>
+              <th>Submitted On</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      admissions.forEach(a => {
+        const fullname = `${a.student?.firstName || ''} ${a.student?.middleName || ''} ${a.student?.lastName || ''}`.trim();
+        const submitted = formatTimestamp(a.createdAt) || (a.timestamp ? a.timestamp : '');
+        html += `
+          <tr>
+            <td>${a.id}</td>
+            <td>${escapeHtml(fullname)}</td>
+            <td>${escapeHtml(a.student?.gender || '')}</td>
+            <td>${escapeHtml(a.parent?.name || '')}</td>
+            <td>${escapeHtml(a.parent?.phone || '')}</td>
+            <td>${escapeHtml(a.academic?.classroom || '')}</td>
+            <td>${escapeHtml(a.academic?.academicYear || '')}</td>
+            <td>${escapeHtml(submitted)}</td>
+            <td>
+              <div style="display:flex; gap:6px;">
+                <button class="btn" style="padding:6px 8px; font-size:12px;" onclick="viewDetails('${a.id}')">View</button>
+                <button class="btn btn-danger" style="padding:6px 8px; font-size:12px;" onclick="deleteSingle('${a.id}')">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+    }
+
+    // populate parent select
+    function loadParentSelect() {
+      const select = document.getElementById('parentSelect');
+      if (!select) return;
+      select.innerHTML = `<option value="">-- Select Parent --</option>`;
+      admissions.forEach(a => {
+        const phoneVal = a.parent?.phone || '';
+        const display = `${a.parent?.name || 'Unknown'} (${phoneVal})`;
+        const opt = document.createElement('option');
+        opt.value = phoneVal;
+        opt.textContent = display;
+        select.appendChild(opt);
+      });
+    }
+
+    // export helpers (XLSX is loaded as global)
+    function prepareExportRows() {
+      return admissions.map(a => ({
+        ID: a.id,
+        Timestamp: formatTimestamp(a.createdAt) || (a.timestamp || ''),
+        FirstName: a.student?.firstName || '',
+        MiddleName: a.student?.middleName || '',
+        LastName: a.student?.lastName || '',
+        Gender: a.student?.gender || '',
+        DOB: a.student?.dob || '',
+        StudentAddress: a.student?.address || '',
+        ParentName: a.parent?.name || '',
+        ParentPhone: a.parent?.phone || '',
+        ParentAddress: a.parent?.address || '',
+        Classroom: a.academic?.classroom || '',
+        AcademicYear: a.academic?.academicYear || '',
+        PreviousSchool: a.academic?.previousSchool || '',
+        Notes: a.academic?.notes || ''
+      }));
+    }
+
+    // expose export functions to global for onclicks
+    window.exportStudentData = function exportStudentData() {
+      if (!admissions.length) return alert("No data to export!");
+      const rows = prepareExportRows().map(r => ({
+        ID: r.ID, FirstName: r.FirstName, MiddleName: r.MiddleName, LastName: r.LastName,
+        Gender: r.Gender, DOB: r.DOB, StudentAddress: r.StudentAddress, Timestamp: r.Timestamp
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Students");
+      XLSX.writeFile(wb, "Student_Information.xlsx");
+    };
+
+    window.exportParentData = function exportParentData() {
+      if (!admissions.length) return alert("No data to export!");
+      const rows = prepareExportRows().map(r => ({
+        ID: r.ID, ParentName: r.ParentName, Phone: r.ParentPhone, ParentAddress: r.ParentAddress, Timestamp: r.Timestamp
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Parents");
+      XLSX.writeFile(wb, "Parent_Information.xlsx");
+    };
+
+    window.exportAcademicData = function exportAcademicData() {
+      if (!admissions.length) return alert("No data to export!");
+      const rows = prepareExportRows().map(r => ({
+        ID: r.ID, Classroom: r.Classroom, AcademicYear: r.AcademicYear, PreviousSchool: r.PreviousSchool, Notes: r.Notes, Timestamp: r.Timestamp
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Academics");
+      XLSX.writeFile(wb, "Academic_Information.xlsx");
+    };
+
+    // delete all admissions in Firestore (be careful)
+    window.clearAllData = async function clearAllData() {
+      if (!confirm("Are you sure you want to permanently delete ALL admissions from the database? This cannot be undone.")) return;
+      try {
+        // delete each doc (client-side). This requires your Firestore rules to permit deletes for this user.
+        const deletes = admissions.map(a => deleteDoc(doc(db, "admissions", a.id)));
+        await Promise.all(deletes);
+        alert("All admissions deleted.");
+      } catch (err) {
+        console.error(err);
+        alert("Error clearing data: " + (err.message || err));
+      }
+    };
+
+    // delete single document
+    window.deleteSingle = async function deleteSingle(id) {
+      if (!confirm("Delete this submission?")) return;
+      try {
+        await deleteDoc(doc(db, "admissions", id));
+        alert("Deleted.");
+      } catch (err) {
+        console.error(err);
+        alert("Delete failed: " + (err.message || err));
+      }
+    };
+
+    // view details
+    window.viewDetails = function viewDetails(id) {
+      const a = admissions.find(x => x.id === id);
+      if (!a) return alert("Record not found");
+      const modalInner = document.getElementById('modalInner');
+      modalInner.innerHTML = `
+        <h3>Submission Details</h3>
+        <div class="detail-row"><strong>ID</strong><div>${escapeHtml(a.id)}</div></div>
+        <div class="detail-row"><strong>Submitted On</strong><div>${escapeHtml(formatTimestamp(a.createdAt) || (a.timestamp || ''))}</div></div>
+
+        <h4 style="margin-top:8px;">Student</h4>
+        <div class="detail-row"><strong>First Name</strong><div>${escapeHtml(a.student?.firstName || '')}</div></div>
+        <div class="detail-row"><strong>Middle Name</strong><div>${escapeHtml(a.student?.middleName || '')}</div></div>
+        <div class="detail-row"><strong>Last Name</strong><div>${escapeHtml(a.student?.lastName || '')}</div></div>
+        <div class="detail-row"><strong>Gender</strong><div>${escapeHtml(a.student?.gender || '')}</div></div>
+        <div class="detail-row"><strong>DOB</strong><div>${escapeHtml(a.student?.dob || '')}</div></div>
+        <div class="detail-row"><strong>Address</strong><div>${escapeHtml(a.student?.address || '')}</div></div>
+
+        <h4 style="margin-top:8px;">Parent</h4>
+        <div class="detail-row"><strong>Name</strong><div>${escapeHtml(a.parent?.name || '')}</div></div>
+        <div class="detail-row"><strong>Phone</strong><div>${escapeHtml(a.parent?.phone || '')}</div></div>
+        <div class="detail-row"><strong>Address</strong><div>${escapeHtml(a.parent?.address || '')}</div></div>
+
+        <h4 style="margin-top:8px;">Academic</h4>
+        <div class="detail-row"><strong>Classroom</strong><div>${escapeHtml(a.academic?.classroom || '')}</div></div>
+        <div class="detail-row"><strong>Academic Year</strong><div>${escapeHtml(a.academic?.academicYear || '')}</div></div>
+        <div class="detail-row"><strong>Previous School</strong><div>${escapeHtml(a.academic?.previousSchool || '')}</div></div>
+        <div class="detail-row"><strong>Notes</strong><div>${escapeHtml(a.academic?.notes || '')}</div></div>
+      `;
+      document.getElementById('detailModal').style.display = 'flex';
+    };
+
+    window.closeDetailModal = function closeDetailModal() {
+      document.getElementById('detailModal').style.display = 'none';
+    };
+
+    // WhatsApp & SMS: format phone to international (basic rules)
+    function normalizeForWa(phone) {
+      if (!phone) return "";
+      let p = String(phone).trim();
+      if (p.startsWith('+')) p = p.slice(1);
+      if (p.startsWith('0')) p = '255' + p.slice(1); // Tanzania default
+      // if already starts with country code (no +), leave as-is
+      return p.replace(/\D/g, ''); // remove non-digits
+    }
+
+    window.sendWhatsApp = function sendWhatsApp() {
+      const phoneRaw = document.getElementById('parentSelect').value;
+      const message = document.getElementById('whatsappMessage').value;
+      if (!phoneRaw || !message) return alert("Please select a parent and enter a message.");
+      const phone = normalizeForWa(phoneRaw);
+      // WhatsApp
+      const wa = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      window.open(wa, '_blank');
+
+      // SMS (opens SMS composer on device)
+      const sms = `sms:${phone}?body=${encodeURIComponent(message)}`;
+      window.open(sms, '_blank');
+    };
+
+    // logout (local method)
+    window.logout = function logout() {
+      localStorage.removeItem('adminLoggedIn');
+      window.location.href = 'index.html';
+    };
+
+    // small helper: escape for HTML injection safety in table/modal
+    function escapeHtml(str) {
+      if (str === undefined || str === null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Optional: if you want to allow creating demo entries from this admin (not required)
+    // window.createDemo = async function() {
+    //   await addDoc(collection(db, "admissions"), {...});
+    // };
+
+    // initialize nothing else (onSnapshot will keep UI in sync)
+  </script>
+</body>
+</html>
